@@ -14,7 +14,7 @@ resource "digitalocean_ssh_key" "jenkins_host_sshkey" {
 resource "digitalocean_droplet" "jenkins_host" {
   name     = "jenkins"
   size     = "s-1vcpu-1gb"
-  image    = "coreos-stable"
+  image    = "ubuntu-18-04-x64"
   region   = "sgp1"
   ssh_keys = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
 }
