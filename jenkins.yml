@@ -1,66 +1,71 @@
 ---
-- hosts: jenkins
-  vars-file:
+- hosts: all
+  vars_files:
     - vars.yml
+  become: true
+  tasks:
+    - name: Install pip
+      apt:
+        name: python3-pip
+        update_cache: true
+        state: present
 
-- name: Create traefik directories
-  file:
-    path: /etc/traefik/acme
-    state: directory
-    owner: root
-    group: root
-    mode: 0755
+    - name: Install docker-py
+      pip: name=docker-py
 
-- name: Create traefik.toml
-  template:
-    src: traefik.toml.j2
-    dest: /etc/traefik/traefik.yoml
-    owner: root
-    group: root
-    mode: 0644
-  notify:
-    - restart traefik
-
-- name: Create traefik network
-  docker_network:
-    name: "{{traefik_network}}"
-    state: present
-
-- name: Launch traeifk container
-  docker_container:
-    name: traefik_proxy
-    image: "traefik:{{traefik_tag}}"
-    state: started
-    restart_policy: always
-    ports:
-      - "443:443"
-    volumes:
-      - /etc/traefik/traefik.toml:/etc/traefik/traefik.toml:ro
-      - /etc/traefik/acme:/etc/traefik/acme:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    purge_networks: yes
-    networks:
-      - name: "{{traefik_network}}"
-
-- name: Force all notified handlers to run
-  meta: flush_handlers
-
-- name: Laucnh Jenkins container
-  docker_container:
-    name: jenkins
-    image: "jenkins/jenkins:{jenkins_tag}"
-    state: started
-    restart_policy: always
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    purge_networks: yes
-    networks:
-      - name: "{{traefik_network}}"
-    labels:
-      traefik.enable: "true"
-      traefik.backend: "jenkins"
-      traefik.frontend.rule: "Host:{{jenkins_domain}}"
-      traefik.port: "8080"
-    volumes:
-      - /var/jenkins_home:/var/jenkins_home
+    - name: Create traefik directories
+      file:
+        path: /etc/traefik/acme
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+    
+    - name: Create traefik.toml
+      template:
+        src: traefik.toml.j2
+        dest: /etc/traefik/traefik.yoml
+        owner: root
+        group: root
+        mode: 0644
+    
+    - name: Create traefik network
+      docker_network:
+        name: "{{traefik_network}}"
+        state: present
+    
+    - name: Launch traeifk container
+      docker_container:
+        name: traefik_proxy
+        image: "traefik:{{traefik_tag}}"
+        state: started
+        restart_policy: always
+        ports:
+          - "443:443"
+        volumes:
+          - /etc/traefik/traefik.toml:/etc/traefik/traefik.toml:ro
+          - /etc/traefik/acme:/etc/traefik/acme:rw
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+        purge_networks: yes
+        networks:
+          - name: "{{traefik_network}}"
+    
+    - name: Launch Jenkins container
+      docker_container:
+        name: jenkins
+        image: "jenkins/jenkins:{jenkins_tag}"
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"
+          - "50000:50000"
+        purge_networks: yes
+        networks:
+          - name: "{{traefik_network}}"
+        labels:
+          traefik.enable: "true"
+          traefik.backend: "jenkins"
+          traefik.frontend.rule: "Host:{{jenkins_domain}}"
+          traefik.port: "8080"
+        volumes:
+          - /var/jenkins_home:/var/jenkins_home
