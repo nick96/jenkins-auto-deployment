@@ -12,12 +12,11 @@ resource "digitalocean_ssh_key" "jenkins_host_sshkey" {
 }
 
 resource "digitalocean_droplet" "jenkins_host" {
-  name       = "jenkins"
-  size       = "s-1vcpu-1gb"
-  image      = "coreos-stable"
-  region     = "sgp1"
-  ssh_keys   = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
-  monitoring = true
+  name     = "jenkins"
+  size     = "s-1vcpu-1gb"
+  image    = "coreos-stable"
+  region   = "sgp1"
+  ssh_keys = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
 }
 
 resource "digitalocean_firewall" "jenkins_host" {
@@ -45,15 +44,22 @@ resource "digitalocean_firewall" "jenkins_host" {
   ]
 }
 
-resource "digitalocean_record" "jenkins_host_record" {
-  domain = "${var.jenkins_domain}"
-  name   = "@"
-  type   = "A"
-  value  = "${digitalocean_droplet.jenkins_host.ipv4_address}"
+resource "digitalocean_domain" "jenkins_domain" {
+  name       = "${var.jenkins_domain}"
+  ip_address = "${digitalocean_droplet.jenkins_host.ipv4_address}"
 }
 
-output "fqdn" {
-  value = "${digitalocean_record.jenkins_host_record.fqdn}"
+data "template_file" "ansible_hosts" {
+  template = "${file("${path.module}/hosts.tpl")}"
+
+  vars = {
+    jenkins_domain = "${var.jenkins_domain}"
+  }
+}
+
+resource "local_file" "ansible_hosts" {
+  content  = "${data.template_file.ansible_hosts.rendered}"
+  filename = "${path.module}/hosts"
 }
 
 output "ipv4" {
