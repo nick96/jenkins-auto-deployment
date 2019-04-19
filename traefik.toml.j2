@@ -6,7 +6,7 @@ defaultEntryPoints = ["http"]
     [entryPoints.https.tls]
 
 [acme]
-email = "{{ traefik_email }}"
+email = "{{ letsencrypt_email }}"
 storageFile = "/etc/traefik/acme/acme.json"
 caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"
 entryPoint = "https"
