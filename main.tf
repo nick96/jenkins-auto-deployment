@@ -1,5 +1,6 @@
 variable "do_token" {}
 variable "ssh_pub_key_path" {}
+variable "jenkins_domain" {}
 
 provider "digitalocean" {
   token = "${var.do_token}"
@@ -11,11 +12,12 @@ resource "digitalocean_ssh_key" "jenkins_host_sshkey" {
 }
 
 resource "digitalocean_droplet" "jenkins_host" {
-  name     = "jenkins_host"
-  size     = "s-1vcpu-1gb"
-  image    = "coreos-stable"
-  region   = "sgp1"
-  ssh_keys = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
+  name       = "jenkins"
+  size       = "s-1vcpu-1gb"
+  image      = "coreos-stable"
+  region     = "sgp1"
+  ssh_keys   = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
+  monitoring = true
 }
 
 resource "digitalocean_firewall" "jenkins_host" {
@@ -44,12 +46,16 @@ resource "digitalocean_firewall" "jenkins_host" {
 }
 
 resource "digitalocean_record" "jenkins_host_record" {
-  domain = "jenkins.nspain.me"
-  name   = "jenkins"
+  domain = "${var.jenkins_domain}"
+  name   = "@"
   type   = "A"
   value  = "${digitalocean_droplet.jenkins_host.ipv4_address}"
 }
 
 output "fqdn" {
   value = "${digitalocean_record.jenkins_host_record.fqdn}"
+}
+
+output "ipv4" {
+  value = "${digitalocean_droplet.jenkins_host.ipv4_address}"
 }
