@@ -1,4 +1,8 @@
 ---
+- hosts: jenkins
+  vars-file:
+    - vars.yml
+
 - name: Create traefik directories
   file:
     path: /etc/traefik/acme
