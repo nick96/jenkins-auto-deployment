@@ -34,12 +34,34 @@ resource "digitalocean_firewall" "jenkins_host" {
     },
     {
       protocol         = "tcp"
+      port_range       = "80"
+      source_addresses = ["0.0.0.0/0", "::/0"]
+    },
+    {
+      protocol         = "tcp"
       port_range       = "443"
       source_addresses = ["0.0.0.0/0", "::/0"]
     },
     {
       protocol         = "icmp"
       source_addresses = ["0.0.0.0/0", "::/0"]
+    },
+  ]
+
+  outbound_rule = [
+    {
+      protocol              = "tcp"
+      port_range            = "1-65535"
+      destination_addresses = ["0.0.0.0/0", "::/0"]
+    },
+    {
+      protocol              = "udp"
+      port_range            = "1-65535"
+      destination_addresses = ["0.0.0.0/0", "::/0"]
+    },
+    {
+      protocol              = "icmp"
+      destination_addresses = ["0.0.0.0/0", "::/0"]
     },
   ]
 }
@@ -53,7 +75,7 @@ data "template_file" "ansible_hosts" {
   template = "${file("${path.module}/hosts.tpl")}"
 
   vars = {
-    jenkins_domain = "${var.jenkins_domain}"
+    jenkins_ip = "${digitalocean_droplet.jenkins_host.ipv4_address}"
   }
 }
 
