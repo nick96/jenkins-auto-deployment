@@ -1,0 +1,19 @@
+defaultEntryPoints = ["http"]
+
+[entryPoints]
+  [entryPoints.https]
+  address = ":443"
+    [entryPoints.https.tls]
+
+[acme]
+email = "{{ traefik_email }}"
+storageFile = "/etc/traefik/acme/acme.json"
+caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"
+entryPoint = "https"
+  [acme.dnsChallenge]
+  provider = "digitialocean"
+  delayBeforeCheck = 0
+
+[[acme.domains]]
+  main = "*.{{ main_domain }}"
+  sans = "{{ main_domain }}"
