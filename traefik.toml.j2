@@ -1,19 +1,45 @@
-defaultEntryPoints = ["http"]
+defaultEntryPoints = ["http", "https"]
+logLevel = "DEBUG"
+
+[accessLog]
+
+[file]
+watch = true
+
+[api]
+dashboard = true
+entryPoint = "traefik"
+debug = true
 
 [entryPoints]
+  [entryPoints.http]
+  address = ":80"
+    [entryPoints.http.redirect]
+    entryPoint = "https"
+
   [entryPoints.https]
   address = ":443"
     [entryPoints.https.tls]
 
+  [entryPoints.traefik]
+  address = ":8000"
+    [entryPoints.traefik.auth]
+      [entryPoints.traefik.auth.basic]
+      usersFile = "{{ htpasswd_file }}"
+
 [acme]
 email = "{{ letsencrypt_email }}"
-storageFile = "/etc/traefik/acme/acme.json"
+storage = "/etc/traefik/acme/acme.json"
 caServer = "https://acme-staging-v02.api.letsencrypt.org/directory"
 entryPoint = "https"
   [acme.dnsChallenge]
-  provider = "digitialocean"
-  delayBeforeCheck = 0
-
+  provider = "digitalocean"
 [[acme.domains]]
   main = "*.{{ main_domain }}"
-  sans = "{{ main_domain }}"
+  sans = ["{{ main_domain }}"]
+
+[docker]
+endpoint = "unix:///var/run/docker.sock"
+watch = true
+exposedByDefault = false
+network = "traefik"
