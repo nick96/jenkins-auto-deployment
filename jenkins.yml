@@ -4,14 +4,50 @@
     - vars.yml
   become: true
   tasks:
-    - name: Install pip
-      apt:
-        name: python3-pip
-        update_cache: true
+    - name: Add docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+
+    - name: Add docker APT repo
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_distribution_release}} stable"
         state: present
 
-    - name: Install docker-py
-      pip: name=docker-py
+    - name: Install required apt packages
+      apt:
+        name:
+          - python3-pip
+          - apt-transport-https
+          - curl
+          - software-properties-common
+          - docker-ce
+        update_cache: true
+
+    - name: Install required python packages
+      pip:
+        name:
+          - docker
+          - passlib
+          - bcrypt
+
+    - name: Ensure docker-py python package is not installed (clashes with docker package)
+      pip:
+        name:
+          - docker-py
+        state: absent
+
+    - name: Ensure journald is running
+      systemd:
+        name: systemd-journald
+        state: started
+        enabled: true
+
+    - name: Create htpasswd file
+      htpasswd:
+        path: "{{htpasswd_file}}"
+        name: "{{traefik_admin_usr}}"
+        password: "{{traefik_admin_psw}}"
+        crypt_scheme: bcrypt
 
     - name: Create traefik directories
       file:
@@ -24,7 +60,7 @@
     - name: Create traefik.toml
       template:
         src: traefik.toml.j2
-        dest: /etc/traefik/traefik.yoml
+        dest: /etc/traefik/traefik.toml
         owner: root
         group: root
         mode: 0644
@@ -33,14 +69,16 @@
       docker_network:
         name: "{{traefik_network}}"
         state: present
-    
-    - name: Launch traeifk container
+
+    - name: Launch traefik container
       docker_container:
         name: traefik_proxy
         image: "traefik:{{traefik_tag}}"
         state: started
+        restart: true
         restart_policy: always
         ports:
+          - "80:80"
           - "443:443"
         volumes:
           - /etc/traefik/traefik.toml:/etc/traefik/traefik.toml:ro
@@ -49,23 +87,29 @@
         purge_networks: yes
         networks:
           - name: "{{traefik_network}}"
-    
+        env:
+          DO_AUTH_TOKEN: "{{do_auth_token}}"
+
     - name: Launch Jenkins container
       docker_container:
         name: jenkins
-        image: "jenkins/jenkins:{jenkins_tag}"
+        image: "jenkinsci/blueocean:{{jenkins_tag}}"
         state: started
         restart_policy: always
-        ports:
-          - "8080:8080"
-          - "50000:50000"
+        exposed_ports:
+          # - "50000"
+          - "80"
+        env:
+          HTTP_PORT: "80"
         purge_networks: yes
         networks:
           - name: "{{traefik_network}}"
         labels:
           traefik.enable: "true"
-          traefik.backend: "jenkins"
-          traefik.frontend.rule: "Host:{{jenkins_domain}}"
-          traefik.port: "8080"
+          traefik.frontend.rule: "Host:jenkins.{{main_domain}}"
+          traefik.port: "80"
+          traefik.docker.network: "{{traefik_network}}"
         volumes:
-          - /var/jenkins_home:/var/jenkins_home
+          - /var/run/docker.sock:/var/run/docker.sock
+          - jenkins-data:/var/jenkins_home
+        user: root
