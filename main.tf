@@ -71,9 +71,23 @@ resource "digitalocean_droplet" "jenkins_host" {
 #   ]
 # }
 
-resource "digitalocean_domain" "jenkins_domain" {
+resource "digitalocean_domain" "domain" {
   name       = "${var.domain}"
   ip_address = "${digitalocean_droplet.jenkins_host.ipv4_address}"
+}
+
+resource "digitalocean_record" "CNAME-www" {
+  domain = "${digitalocean_domain.domain.name}"
+  type   = "CNAME"
+  name   = "www"
+  value  = "@"
+}
+
+resource "digitalocean_record" "subdomains" {
+  domain = "${digitalocean_domain.domain.name}"
+  type   = "CNAME"
+  name   = "*"
+  value  = "@"
 }
 
 data "template_file" "ansible_hosts" {
