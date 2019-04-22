@@ -1,5 +1,7 @@
 ---
 - hosts: all
+  vars:
+    web_network: "web"
   vars_files:
     - vars.yml
   become: true
@@ -40,79 +42,64 @@
         state: started
         enabled: true
 
+    - name: Create traefik directory
+      file:
+        path: /opt/traefik
+        state: directory
+
+    - name: Copy over traefik config
+      template:
+        src: traefik.toml.tpl
+        dest: /opt/traefik/traefik.toml
+
+    - name: Create acme.json placeholder
+      copy:
+        content: ""
+        dest: /opt/traefik/acme.json
+        force: no
+        mode: "600"
+
     - name: Create web network
       docker_network:
         name: "{{web_network}}"
         state: present
 
-    - name: Launch nginx-proxy container
+    - name: Launch Traefik container
       docker_container:
-        name: nginx-proxy
-        image: "jwilder/nginx-proxy:{{nginx_tag}}"
+        name: traefik
+        image: traefik
         state: started
         restart_policy: always
         ports:
-          - "80:80"
-          - "443:443"
-        purge_networks: yes
-        networks:
-          - name: "{{web_network}}"
-        volumes:
-          - /etc/nginx/certs:/etc/nginx/certs:ro
-          - /var/run/docker.sock:/tmp/docker.sock:ro
-          - /etc/nginx/vhost.d:/etc/nginx/vhost.d 
-          - /usr/share/nginx/html:/usr/share/nginx/html
-        labels:
-          com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
-
-    - name: Launch Lets Encrypt container
-      docker_container:
-        name: nginx-letsencrypt
-        image: jrcs/letsencrypt-nginx-proxy-companion
-        volumes_from:
-          - nginx-proxy
-        networks:
-          - name: "{{web_network}}"
-        volumes:
-          - /etc/nginx/certs:/etc/nginx/certs:rw
-          - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    - name: Launch hello-world
-      docker_container:
-        name: jenkins
-        image: "tullyrankin/flask-hello-world:{{jenkins_tag}}"
-        state: started
-        exposed_ports:
-          - 5000
+          - 80:80
+          - 443:443
+        env:
+          DO_AUTH_TOKEN: "{{do_auth_token}}"
         purge_networks: true
         networks:
           - name: "{{web_network}}"
-        env:
-          VIRTUAL_HOST: "jenkins.{{domain}}"
-          VIRTUAL_PORT: "5000"
-          LETSENCRYPT_EMAIL: "{{letsencrypt_email}}"
-          LETSENCRYPT_HOST: "jenkins.{{domain}}"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+          - /opt/traefik/traefik.toml:/traefik.toml
+          - /opt/traefik/acme.json:/acme.json
 
-    # - name: Launch Jenkins container
-    #   docker_container:
-    #     name: jenkins
-    #     image: "jenkinsci/blueocean:{{jenkins_tag}}"
-    #     state: started
-    #     restart_policy: always
-    #     exposed_ports:
-    #       - "8080"
-    #     env:
-    #       HTTP_PORT: "8080"
-    #     purge_networks: yes
-    #     networks:
-    #       - name: "{{web_network}}"
-    #     volumes:
-    #       - /var/jenkins_home:/var/jenkins_home
-    #     user: root
-
-  handlers:
-    - name: restart nginx
+    - name: Launch Jenkins container
       docker_container:
-        name: nginx
+        name: jenkins
+        image: "jenkinsci/blueocean:1.14.0"
         state: started
-        restart: true
+        restart_policy: always
+        exposed_ports:
+          - "8080"
+          - "50000"
+        labels:
+          traefik.enable: "true"
+          traefik.port: "8080"
+          traefik.frontend.rule: "Host:jenkins.{{domain}}"
+          traefik.docker.network: "{{web_network}}"
+        purge_networks: true
+        networks:
+          - name: "{{web_network}}"
+        volumes:
+          - /var/jenkins_home:/var/jenkins_home
+        user: root
