@@ -102,4 +102,5 @@
           - name: "{{web_network}}"
         volumes:
           - /var/jenkins_home:/var/jenkins_home
+          - /var/run/docker.sock:/var/run/docker.sock
         user: root
