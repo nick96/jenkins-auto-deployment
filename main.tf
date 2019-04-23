@@ -1,5 +1,6 @@
 variable "do_token" {}
 variable "ssh_pub_key_path" {}
+variable "jenkins_ssh_pub_key_path" {}
 variable "domain" {}
 
 provider "digitalocean" {
@@ -11,6 +12,11 @@ resource "digitalocean_ssh_key" "jenkins_host_sshkey" {
   public_key = "${file("${var.ssh_pub_key_path}")}"
 }
 
+resource "digitalocean_ssh_key" "jenkins_sshkey" {
+  name       = "Jenkins Host SSH Key for Jenkins"
+  public_key = "${file("${var.jenkins_ssh_pub_key_path}")}"
+}
+
 resource "digitalocean_droplet" "jenkins_host" {
   name     = "jenkins"
   size     = "s-1vcpu-1gb"
@@ -19,57 +25,32 @@ resource "digitalocean_droplet" "jenkins_host" {
   ssh_keys = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
 }
 
-# resource "digitalocean_firewall" "jenkins_host" {
-#   name = "only-22-and-443"
+resource "digitalocean_firewall" "jenkins_firewall" {
+  name        = "only-22-80-443"
+  droplet_ids = ["${digitalocean_droplet.jenkins_host.id}"]
 
-#   droplet_ids = [
-#     "${digitalocean_droplet.jenkins_host.id}",
-#   ]
-
-#   inbound_rule = [
-#     {
-#       protocol         = "tcp"
-#       port_range       = "22"
-#       source_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#     {
-#       protocol         = "tcp"
-#       port_range       = "80"
-#       source_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#     {
-#       protocol         = "tcp"
-#       port_range       = "443"
-#       source_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#     {
-#       protocol         = "icmp"
-#       source_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#     {
-#       protocol         = "tcp"
-#       port_range       = "8080"
-#       source_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#   ]
-
-#   outbound_rule = [
-#     {
-#       protocol              = "tcp"
-#       port_range            = "1-65535"
-#       destination_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#     {
-#       protocol              = "udp"
-#       port_range            = "1-65535"
-#       destination_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#     {
-#       protocol              = "icmp"
-#       destination_addresses = ["0.0.0.0/0", "::/0"]
-#     },
-#   ]
-# }
+  inbound_rule = [
+    {
+      protocol         = "tcp"
+      port_range       = "22"
+      source_addresses = ["0.0.0.0/0", "::/0"]
+    },
+    {
+      protocol         = "tcp"
+      port_range       = "80"
+      source_addresses = ["0.0.0.0/0", "::/0"]
+    },
+    {
+      protocol         = "tcp"
+      port_range       = "443"
+      source_addresses = ["0.0.0.0/0", "::/0"]
+    },
+    {
+      protocol         = "icmp"
+      source_addresses = ["0.0.0.0/0", "::/0"]
+    },
+  ]
+}
 
 resource "digitalocean_domain" "domain" {
   name       = "${var.domain}"
