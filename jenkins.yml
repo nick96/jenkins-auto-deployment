@@ -67,7 +67,7 @@
     - name: Launch Traefik container
       docker_container:
         name: traefik
-        image: traefik
+        image: traefik:v1.7.10-alpine
         state: started
         restart_policy: always
         ports:
@@ -89,6 +89,8 @@
         image: "jenkinsci/blueocean:1.14.0"
         state: started
         restart_policy: always
+        ports:
+          - 22:22
         exposed_ports:
           - "8080"
           - "50000"
