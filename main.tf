@@ -25,33 +25,6 @@ resource "digitalocean_droplet" "jenkins_host" {
   ssh_keys = ["${digitalocean_ssh_key.jenkins_host_sshkey.fingerprint}"]
 }
 
-resource "digitalocean_firewall" "jenkins_firewall" {
-  name        = "only-22-80-443"
-  droplet_ids = ["${digitalocean_droplet.jenkins_host.id}"]
-
-  inbound_rule = [
-    {
-      protocol         = "tcp"
-      port_range       = "22"
-      source_addresses = ["0.0.0.0/0", "::/0"]
-    },
-    {
-      protocol         = "tcp"
-      port_range       = "80"
-      source_addresses = ["0.0.0.0/0", "::/0"]
-    },
-    {
-      protocol         = "tcp"
-      port_range       = "443"
-      source_addresses = ["0.0.0.0/0", "::/0"]
-    },
-    {
-      protocol         = "icmp"
-      source_addresses = ["0.0.0.0/0", "::/0"]
-    },
-  ]
-}
-
 resource "digitalocean_domain" "domain" {
   name       = "${var.domain}"
   ip_address = "${digitalocean_droplet.jenkins_host.ipv4_address}"
